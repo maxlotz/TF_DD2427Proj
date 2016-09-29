@@ -188,7 +188,9 @@ h_pool3 = max_pool_2x2(h_conv5)
 w_fc1 = weights_variable([8*8*128,400], 0.02)
 b_fc1 = bias_variable([400])
 h_pool_3_flat = tf.reshape(h_pool3,[-1,8*8*128])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool_3_flat, w_fc1) + b_fc1)
+t_fc1 = tf.matmul(h_pool_3_flat, w_fc1) + b_fc1
+h_fc1 = tf.nn.relu(t_fc1)
+#h_fc1 = tf.nn.relu(tf.matmul(h_pool_3_flat, w_fc1) + b_fc1)
 
 #fully connected layer 2
 #w_fc2 = weights_xav_uniform_variable([400,400],400,200)
@@ -222,12 +224,15 @@ with tf.Session() as sess:
   coord = tf.train.Coordinator()
   threads = tf.train.start_queue_runners(coord=coord)
 
-  # CODE FOR TESTING 
-  x = sess.run(tf.shape(y)) # to see the shape eg [100 200]
-  x_ = sess.run(tf.shape(x)) # to see value and the type eg [array [0.12...]dtype=float32]
-
-  print x
-  print x_
+  # # CODE FOR TESTING 
+  # ashape_, a_ = sess.run([tf.shape(a),a])
+  # print ashape_
+  # print "\n"
+  # print a
+  test_s, test_, test2_s, test2_ = sess.run([tf.shape(test), test, tf.shape(test2), test2])
+  
+  print test_s
+  print test2_s
 
   # # RUN CODE HERE
   # for i in range(NUM_ITERATIONS):
@@ -240,31 +245,65 @@ with tf.Session() as sess:
   sess.close()
 
 '''
-TESTING CODE HERE
+Things I have checked:
 
-# SHOWS FILE PIXEL COLOURS, LABELS, FILENAMES FOR FIRST 3 FILES IN BATCH
-# File reader is reading the files it says it is, with the correct label, and correct colours
-x_,y_,f_ = sess.run([x, y, f])
-print "image 1 channel 1" # BATCH X HEIGHT x WIDTH X CHANNEL is standard TF format
-print x_[0,:,:,0]
-print "image 1 channel 2"
-print x_[0,:,:,1]
-print "image 1 channel 3"
-print x_[0,:,:,2]
-print "image 2 channel 1"
-print x_[1,:,:,0]
-print "image 2 channel 2"
-print x_[1,:,:,1]
-print "image 2 channel 3"
-print x_[1,:,:,2]
-print "image 3 channel 1"
-print x_[2,:,:,0]
-print "image 3 channel 2"
-print x_[2,:,:,1]
-print "image 3 channel 3"
-print x_[2,:,:,2]
-print "batch labels are:"
-print y_[:3]
-print "batch filenames are:"
-print f_[:3]
+That the filename, file and label shown are correct
+	by: printing the first few filenames, file values of all pixels and labels to the terminal and confirming that they correspond with each other
+
+That the onehot works (and that im using it correctly)
+	by: checking that 0,...,0 corresponds to 0 and 0,...,1 corresponds to 199
+
+That conv2d works...
+	by: checking for the first and last image in the batch:
+		for the first and last of the 128 filters:
+			that the with 0 padding, the output of the convolution for each corner is as expected
+
+That relu works...
+	by inputting a random batch of values and checking that -ve inputs are 0, and the +ve inputs stay the same
+
+That maxpooling works...
+	by checking the output from the relu, to the output of the maxpool
+	for the first and last images in the batch:
+		for the first and last of the 128 filters:
+			for values in each corner (max of 6x6 values of relu output correspond to 3x3 maxpool outputs)
+
+That the hpool_flat is reshaped to the correct shape (to ensure that weights from each image in the batch werent all in one layer mixed together or something)
+	by: checking that for the first and last images:
+		for the first and last of the 128 filters:
+			for each corner value, that it corresponds to an hpoolflat value for the correct image. ie. confirmed that hpool[im, a, b, c] = hpoolflat[im, (128*8*a + 128*b +c)]
+
+That matmul works...
+	by: checking for first and last image:
+			first and last output node values
+			  for i in range(len(in_[im])):
+			  	summ += hp_[im][i]* w_[i][node]
+			  print summ
+			  print out_[im][node]
+
+That softmax works...
+	by: checking for first and last image:
+			first and last output values
+				for i in hp_[im]:
+					summ+= 2.718281828459045**i
+				print summ
+				print 2.718281828459045**hp_[im][n]/summ
+				print y_[im][n]
+
+That log, reduce_sum, reduce_mean, elementwise multiplication of y_onehot * tf.log(y_pred) and therefore loss, all work as expected.
+
+Possible errors: 
+	program for assigning labels to files based on original data is erronious.
+		solution: Double check, rewrite the program a different way, or get someone else to
+		write it, or test it with a different image set where the files and label system are
+		correct
+	weight/bias initialisation or optimisation method/parameter are suboptimal.
+		solution: try different values, use tensorboard to see weights/bias/loss at each stage 
+		etc.
+	part of the network is fundamentally wrong, we are using functions that arent supposed to be 
+	used for this type of problem, we should use a different network architecture or a different 
+	method for predicting the output or the loss etc.
+		solution: review literature, examine similar problems
+
+	I am pretty sure either some of the files are mislabeled or the initialisation of weights etc. is wrong.
+
 '''
