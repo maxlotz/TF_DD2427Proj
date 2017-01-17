@@ -3,8 +3,8 @@ import numpy as np
 from tensorflow.python.framework import ops
 from tensorflow.python.framework import dtypes
 
-validation_file = "tiny-imagenet-200/val/validation.txt"
-training_file = "tiny-imagenet-200/train/training.txt"
+validation_file = "validation_labels.csv"
+training_file = "training_labels.csv"
 
 IMAGE_HEIGHT = 64
 IMAGE_WIDTH =  64
@@ -12,7 +12,7 @@ CHANNELS =  3
 NUM_CLASSES = 200
 NUM_ITERATIONS = 100000
 
-BATCH_SIZE = 100
+BATCH_SIZE = 25
 MIN_AFTER_DEQUEUE =	1000
 CAPACITY = MIN_AFTER_DEQUEUE + 3 * BATCH_SIZE #As recommended on tf website
 
@@ -22,7 +22,7 @@ def read_labeled_image_list(image_list_file):
 
     Args:
        image_list_file: a .txt file with one /path/to/image per line eg "fpath/file1.jpg"
-       followed by a label corresponding to the class number eg. "156"; seperated with a ' '.
+       followed by a label corresponding to the class number eg. "156"; seperated with a ','.
        Class number ranges from 0 to NUM_CLASSES - 1
        example of file contents: 
        fpath/file1.jpeg 126
@@ -38,7 +38,7 @@ def read_labeled_image_list(image_list_file):
 	    filenames = []
 	    labels = []
 	    for line in f:
-	        filename, label = line[:-1].split(' ')
+	        filename, label = line[:-1].split(',')
 	        filenames.append(filename)
 	        labels.append(label)
 	    return filenames, labels
@@ -96,16 +96,10 @@ def input_pipeline(image_list, label_list):
 # see Glorot, Bengio 2010 http://jmlr.org/proceedings/papers/v9/glorot10a/glorot10a.pdf
 
 # use this for a xavier uniform distribution
-def weights_xav_uniform_variable(shape, fan_in, fan_out):
-	u = 6.0**0.5/(fan_in + fan_out)**0.5
-	initial = tf.random_uniform(shape, -u, u)
-	return tf.Variable(initial)
 
-'''
-def _weights_variable(shape, std):
+def weights_variable(shape, std):
 	initial = tf.truncated_normal(shape, stddev=std, name='weights')
 	return tf.Variable(initial)
-'''
 
 def _get_fans(shape):
   if len(shape) == 2:  # fully connected layer
@@ -120,7 +114,7 @@ def _get_fans(shape):
   return fan_in, fan_out
 
 
-def weights_variable(shape, stddev, name='kaiming_variable'):
+def xavier_weights_variable(shape, name='kaiming_variable'):
   fan_in, fan_out = _get_fans(shape)
   scale = np.sqrt(6. / fan_in)
   initial = tf.random_uniform(shape,
@@ -167,15 +161,15 @@ y_onehot = tf.one_hot(y,NUM_CLASSES) # use in one-hot format for loss
 
 #conv layer 1
 with tf.name_scope('conv1') as scope:
-	#w = weights_variable([3,3,3,128],xavier(3*3*128))
-	w = weights_variable([3,3,3,128], 0.01)
+	w = xavier_weights_variable([3,3,3,128])
+	#w = weights_variable([3,3,3,128], 0.02)
 	b = bias_variable([128])
 	conv1 = tf.nn.relu(conv2d(x,w) + b, name="activations")
 
 #conv layer 2
 with tf.name_scope('conv2') as scope:
-	#w = weights_xav_uniform_variable([3,3,128,128],3*3*128,3*3*128)
-	w = weights_variable([3,3,128,128], 0.01)
+	w = xavier_weights_variable([3,3,128,128])
+	#w = weights_variable([3,3,128,128], 0.02)
 	b = bias_variable([128])
 	conv2 = tf.nn.relu(conv2d(conv1,w) + b, name="activations")
 
@@ -185,15 +179,15 @@ with tf.name_scope('pool1') as scope:
 
 #conv layer 3
 with tf.name_scope('conv3') as scope:
-	#w = weights_xav_uniform_variable([3,3,128,128],3*3*128,3*3*128)
-	w = weights_variable([3,3,128,128], 0.01)
+	w = xavier_weights_variable([3,3,128,128])
+	#w = weights_variable([3,3,128,128], 0.02)
 	b = bias_variable([128])
 	conv3 = tf.nn.relu(conv2d(pool1,w) + b, name="activations")
 
 #conv layer 4
 with tf.name_scope('conv4') as scope:
-	#w = weights_xav_uniform_variable([3,3,128,128],3*3*128,3*3*128)
-	w = weights_variable([3,3,128,128], 0.01)
+	w = xavier_weights_variable([3,3,128,128])
+	#w = weights_variable([3,3,128,128], 0.02)
 	b = bias_variable([128])
 	conv4 = tf.nn.relu(conv2d(conv3,w) + b, name="activations")
 
@@ -203,8 +197,8 @@ with tf.name_scope('pool2') as scope:
 
 #conv layer 5
 with tf.name_scope('conv5') as scope:
-	#w = weights_xav_uniform_variable([3,3,128,128],3*3*128,400)
-	w = weights_variable([3,3,128,128], 0.01)
+	w = xavier_weights_variable([3,3,128,128])
+	#w = weights_variable([3,3,128,128], 0.02)
 	b = bias_variable([128])
 	conv5 = tf.nn.relu(conv2d(pool2,w) + b, name="activations")
 
@@ -214,27 +208,27 @@ with tf.name_scope('pool3') as scope:
 
 #fully connected layer 1
 with tf.name_scope('fully_connected1') as scope:
-	#w = weights_xav_uniform_variable([8*8*128,400],400,400)
-	w = weights_variable([8*8*128,400], 0.01)
+	w = xavier_weights_variable([8*8*128,400])
+	#w = weights_variable([8*8*128,400], 0.01)
 	b = bias_variable([400])
 	pool3_flat = tf.reshape(pool3,[-1,8*8*128])
 	fully_connected1 = tf.nn.relu(tf.matmul(pool3_flat, w) + b, name="activations")
 
 #fully connected layer 2
 with tf.name_scope('fully_connected2') as scope:
-	#w = weights_xav_uniform_variable([400,400],400,200)
-	w = weights_variable([400,400], 0.01)
+	w = xavier_weights_variable([400,400])
+	#w = weights_variable([400,400], 0.01)
 	b = bias_variable([400])
 	fully_connected2 = tf.nn.relu(tf.matmul(fully_connected1, w) + b, name="activations")
 
 #fully connected layer 3
 with tf.name_scope('fully_connected3') as scope:
-	#w = weights_variable([400,200],xavier(400))
-	w = weights_variable([400,200], 0.01)
+	w = xavier_weights_variable([400,200])
+	#w = weights_variable([400,200], 0.01)
 	b = bias_variable([200])
 	y_pred = tf.matmul(fully_connected2, w) + b
 
-# loss measure
+#loss measure
 with tf.name_scope('loss') as scope:
 	loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(y_pred, train_label_batch, name='loss'))
 
