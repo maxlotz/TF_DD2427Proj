@@ -62,5 +62,20 @@ def inference(x):
 		w = layers.xavier_weights_variable([400,200])
 		b = layers.bias_variable([200])
 		y_pred = tf.matmul(fully_connected2, w) + b
-
 	return y_pred
+
+def loss(logits, labels):
+	with tf.name_scope('loss') as scope:
+		loss_ = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits, labels, name='loss'))
+	return loss_
+
+def training(loss, learning_rate=0.001):
+	tf.summary.scalar('loss', loss)
+	global_step = tf.Variable(0, name='global_step', trainable=False)
+
+	opt = tf.train.MomentumOptimizer(learning_rate, momentum=0.9)
+	grads_and_vars = opt.compute_gradients(loss)
+	for grad, var in grads_and_vars:
+		tf.summary.histogram('gradients/' + grad.op.name, grad)
+	train_step = opt.apply_gradients(grads_and_vars, global_step=global_step)
+	return train_step
